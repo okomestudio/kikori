@@ -1,2 +1,0 @@
-# kikori
-Logging message router
