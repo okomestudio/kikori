@@ -127,5 +127,7 @@ class EventHandler(LoggingEventHandler):
             mobj = trigger['text_pattern'].match(text)
             if mobj:
                 for router_config in trigger['routers']:
-                    self.routers[router_config['name']].send(
-                        text, cursor, mobj, **router_config.get('args', {}))
+                    router = self.routers[router_config['name']]
+                    payload = router.payload(text, cursor, mobj.groupdict(),
+                                             **router_config.get('args', {}))
+                    router.send(payload)

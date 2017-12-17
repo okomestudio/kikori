@@ -44,30 +44,34 @@ class Slack(Router):
         self.text = text or '```{MESSAGE}```'
         self.footer = footer or '{HOSTNAME}:{LOGFILE}:{LINENO}'
 
-    def send(self, message, cursor, match, **kwargs):
+    def send(self, payload):
+        return requests.post(self.webhook_url, json=payload)
+
+    def payload(self, message, cursor, groupdict, color=None, title=None,
+                text=None, footer=None, channel=None):
         format_args = {'HOSTNAME': self.hostname,
                        'LOGFILE': cursor.path,
                        'LINENO': cursor.line,
                        'MESSAGE': message}
-        format_args.update(**match.groupdict())
+        format_args.update(**groupdict)
 
-        color = kwargs.get('color', self.color)
-        title = kwargs.get('title', self.title).format(**format_args)
-        text = kwargs.get('text', self.text).format(**format_args)
-        footer = kwargs.get('footer', self.footer).format(**format_args)
+        color = color or self.color
+        title = (title or self.title).format(**format_args)
+        text = (text or self.text).format(**format_args)
+        footer = (footer or self.footer).format(**format_args)
+        channel = channel or self.channel
 
         payload = {
             'fallback': title + '(' + footer + ')',
             'attachments': [{
                 'color': color,
                 'title': title,
-                'text': text,  # '```' + message + '```',
+                'text': text,
                 'footer': footer,
                 'mrkdwn_in': ['text']}],
             'username': 'kikori',
             'icon_emoji': ':evergreen_tree:'}
+        if channel:
+            payload['channel'] = channel
 
-        if self.channel:
-            payload['channel'] = self.channel
-
-        return requests.post(self.webhook_url, json=payload)
+        return payload

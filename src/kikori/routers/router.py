@@ -26,5 +26,9 @@ import socket
 
 
 class Router:
+
     def __init__(self):
         self.hostname = socket.gethostname()
+
+    def send(self, payload):
+        raise NotImplementedError('Override me')
