@@ -48,6 +48,7 @@ class EventHandler(LoggingEventHandler):
         super(EventHandler, self).__init__(**kwargs)
         self._cache = {}
         self.text_pattern = re.compile(text_pattern)
+        self.filename_pattern = re.compile(r'*.log$')
 
         self.triggers = []
         for trigger in triggers:
@@ -58,17 +59,37 @@ class EventHandler(LoggingEventHandler):
 
         self._lock = threading.Lock()
 
+    def dispatch(self, event):
+        if self._is_valid_event(event):
+            return super().dispatch(event)
+
+    def on_deleted(self, event):
+        self._remove_from_cache(event.src_path)
+
     def on_modified(self, event):
-        """A hook to be called when a change event occurs."""
-        if event.event_type != 'modified' or \
-           not os.path.isfile(event.src_path):
+        if event.is_directory():
             return
         with self._lock:
             with open(event.src_path, 'r') as f:
                 self._process_file(f)
 
+    def on_moved(self, event):
+        self._remove_from_cache(event.src_path)
+
+    def _is_valid_event(self, event):
+        return (not event.is_directory() and
+                self.filename_pattern.match(event.src_path))
+
+    def _get_full_path(self, path):
+        return os.path.abspath(path)
+
+    def _remove_from_cache(self, path):
+        path = self._get_full_path(path)
+        if path in self._cache:
+            del self._cache[path]
+
     def _process_file(self, f):
-        path = os.path.abspath(f.name)
+        path = self._get_full_path(f.name)
 
         if path in self._cache:
             # Move to the position cached the last time
