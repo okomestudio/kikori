@@ -51,11 +51,13 @@ def main():
     observer = Observer()
 
     for conf in config.conf.get('watch', []):
-        path = conf['path']
+        path = conf['dir']
+        filename = conf['filename']
         text_pattern = conf['text_pattern']
         triggers = conf['triggers']
 
-        event_handler = EventHandler(text_pattern,
+        event_handler = EventHandler(filename,
+                                     text_pattern,
                                      triggers,
                                      routers)
 

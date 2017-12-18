@@ -44,11 +44,11 @@ def _create_message(text, cursor):
 
 class EventHandler(LoggingEventHandler):
 
-    def __init__(self, text_pattern, triggers, routers, **kwargs):
+    def __init__(self, filename, text_pattern, triggers, routers, **kwargs):
         super(EventHandler, self).__init__(**kwargs)
         self._cache = {}
+        self.filename = re.compile(filename)
         self.text_pattern = re.compile(text_pattern)
-        self.filename_pattern = re.compile(r'*.log$')
 
         self.triggers = []
         for trigger in triggers:
@@ -64,21 +64,21 @@ class EventHandler(LoggingEventHandler):
             return super().dispatch(event)
 
     def on_deleted(self, event):
-        self._remove_from_cache(event.src_path)
+        with self._lock:
+            self._remove_from_cache(event.src_path)
 
     def on_modified(self, event):
-        if event.is_directory():
-            return
         with self._lock:
             with open(event.src_path, 'r') as f:
                 self._process_file(f)
 
     def on_moved(self, event):
-        self._remove_from_cache(event.src_path)
+        with self._lock:
+            self._remove_from_cache(event.src_path)
 
     def _is_valid_event(self, event):
-        return (not event.is_directory() and
-                self.filename_pattern.match(event.src_path))
+        return (not event.is_directory and
+                self.filename.match(event.src_path))
 
     def _get_full_path(self, path):
         return os.path.abspath(path)
