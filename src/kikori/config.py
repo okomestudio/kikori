@@ -22,12 +22,36 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+import logging
+import signal
 import yaml
 
 
+log = logging.getLogger(__name__)
+
+
+conf_path = None
 conf = None
 
 
-def load(path):
+def set_conf_path(path):
+    globals()['conf_path'] = path
+
+
+def load(path=None):
+    path = path or globals()['conf_path']
+    log.info('Loading app config at %s', path)
     with open(path) as f:
         globals()['conf'] = yaml.load(f)
+
+
+def handler(signum, frame):
+    load()
+
+
+signal.signal(signal.SIGUSR1, handler)
+
+
+def init(conf_path):
+    set_conf_path(conf_path)
+    load()
