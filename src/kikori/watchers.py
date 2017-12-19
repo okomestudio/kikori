@@ -23,6 +23,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import copy
+import logging
 import os
 import re
 import threading
@@ -32,6 +33,9 @@ from watchdog.events import LoggingEventHandler
 from watchdog.observers import Observer  # noqa
 
 from .utils import count_lines
+
+
+log = logging.getLogger(__name__)
 
 
 def _create_cursor(path, pos, line):
@@ -63,6 +67,12 @@ class EventHandler(LoggingEventHandler):
         if self._is_valid_event(event):
             return super().dispatch(event)
 
+    def on_created(self, event):
+        with self._lock:
+            fullpath = self._get_full_path(event.src_path)
+            with open(event.src_path) as f:
+                self._create_cache_entry(fullpath, f)
+
     def on_deleted(self, event):
         with self._lock:
             self._remove_from_cache(event.src_path)
@@ -76,9 +86,39 @@ class EventHandler(LoggingEventHandler):
         with self._lock:
             self._remove_from_cache(event.src_path)
 
+    def all_watched_files(self, dir):
+        for root, dirs, filenames in os.walk(dir):
+            for filename in filenames:
+                if not self._is_valid_filename(filename):
+                    continue
+                yield self._get_full_path(os.path.join(root, filename))
+
+    def init(self, dir):
+        for fullpath in self.all_watched_files(dir):
+            with open(fullpath) as f:
+                cache = self._create_cache_entry(fullpath, f)
+                # line = count_lines(f)
+                # pos = f.tell()
+                # cursor = _create_cursor(path=fullpath, pos=pos, line=line)
+                # message = _create_message(None, cursor)
+                # self._cache[fullpath] = cursor, message
+            log.info('Caching current state of watched file %s: %r',
+                     fullpath, cache)
+
+    def _create_cache_entry(self, fullpath, f):
+        line = count_lines(f)
+        pos = f.tell()
+        cursor = _create_cursor(path=fullpath, pos=pos, line=line)
+        message = _create_message(None, cursor)
+        self._cache[fullpath] = cursor, message
+        return self._cache[fullpath]
+
+    def _is_valid_filename(self, filename):
+        return self.filename.match(filename)
+
     def _is_valid_event(self, event):
         return (not event.is_directory and
-                self.filename.match(event.src_path))
+                self._is_valid_filename(event.src_path))
 
     def _get_full_path(self, path):
         return os.path.abspath(path)
@@ -91,17 +131,8 @@ class EventHandler(LoggingEventHandler):
     def _process_file(self, f):
         path = self._get_full_path(f.name)
 
-        if path in self._cache:
-            # Move to the position cached the last time
-            cursor, message = self._cache[path]
-            f.seek(cursor.pos)
-        else:
-            # The first time this file is openend; move to EOF (which
-            # count_lines) does.
-            line = count_lines(f)
-            pos = f.tell()
-            cursor = _create_cursor(path=path, pos=pos, line=line)
-            message = _create_message('', cursor)
+        cursor, message = self._cache[path]
+        f.seek(cursor.pos)
 
         while 1:
             # Read a line from the current position, including the
@@ -127,6 +158,10 @@ class EventHandler(LoggingEventHandler):
             if self.text_pattern.match(s):
                 # The message starts from this line, so the currently
                 # buffered message is complete
+                if message.text is None:
+                    # This happens when this is the very first message
+                    # text line parsed from stream.
+                    message.text = s
                 self._process_message(message)
 
                 # Start buffering the new message

@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def main():
+def main(no_hello=False):
     routers = {}
     for k, v in config.conf.get('routers', {}).items():
         if v['type'] == 'slack':
@@ -46,13 +46,14 @@ def main():
             router = Slack(v['webhook_url'], **v['args'])
         else:
             raise Exception('Unknown router type')
-        router.send_hello()
+        if not no_hello:
+            router.send_hello()
         routers[k] = router
 
     observer = Observer()
 
     for conf in config.conf.get('watch', []):
-        path = conf['dir']
+        dir = conf['dir']
         filename = conf['filename']
         text_pattern = conf['text_pattern']
         triggers = conf['triggers']
@@ -61,8 +62,9 @@ def main():
                                      text_pattern,
                                      triggers,
                                      routers)
+        event_handler.init(dir)
 
-        observer.schedule(event_handler, path, recursive=True)
+        observer.schedule(event_handler, dir, recursive=True)
 
     observer.start()
     try:
@@ -75,9 +77,12 @@ def main():
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument('-c', '--conf', default='conf.yml')
+    p.add_argument(
+        '-c', '--conf', default='conf.yml')
+    p.add_argument(
+        '--no-hello', action='store_true', default=False)
     args = p.parse_args()
 
     config.init(args.conf)
 
-    main()
+    main(no_hello=args.no_hello)
