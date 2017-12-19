@@ -46,6 +46,7 @@ def main():
             router = Slack(v['webhook_url'], **v['args'])
         else:
             raise Exception('Unknown router type')
+        router.send_hello()
         routers[k] = router
 
     observer = Observer()

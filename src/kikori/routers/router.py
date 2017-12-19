@@ -32,3 +32,6 @@ class Router:
 
     def send(self, payload):
         raise NotImplementedError('Override me')
+
+    def send_hello(self):
+        raise NotImplementedError('Override me')

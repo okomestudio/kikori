@@ -47,6 +47,15 @@ class Slack(Router):
     def send(self, payload):
         return requests.post(self.webhook_url, json=payload)
 
+    def send_hello(self):
+        import kikori
+        text = 'Hello from kikori v{}!'.format(kikori.__version__)
+        payload = {'fallback': text,
+                   'text': text,
+                   'username': 'kikori',
+                   'icon_emoji': ':evergreen_tree:'}
+        return self.send(payload)
+
     def payload(self, message, cursor, groupdict, color=None, title=None,
                 text=None, footer=None, channel=None):
         format_args = {'HOSTNAME': self.hostname,
