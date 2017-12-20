@@ -54,6 +54,8 @@ class Slack(Router):
                    'text': text,
                    'username': 'kikori',
                    'icon_emoji': ':evergreen_tree:'}
+        if self.channel:
+            payload['channel'] = self.channel
         return self.send(payload)
 
     def payload(self, message, cursor, groupdict, color=None, title=None,
