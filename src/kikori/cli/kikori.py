@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # The MIT License (MIT)
@@ -25,12 +24,11 @@
 # SOFTWARE.
 import argparse
 import logging
-import sys
 import time
 
-from kikori import config
-from kikori.watchers import EventHandler
-from kikori.watchers import Observer
+from .. import config
+from ..watchers import EventHandler
+from ..watchers import Observer
 
 
 logging.basicConfig(level=logging.INFO,
@@ -38,7 +36,7 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def main(no_hello=False):
+def _main(no_hello=False):
     routers = {}
     for k, v in config.conf.get('routers', {}).items():
         if v['type'] == 'slack':
@@ -75,7 +73,7 @@ def main(no_hello=False):
     observer.join()
 
 
-if __name__ == "__main__":
+def main():
     p = argparse.ArgumentParser()
     p.add_argument(
         '-c', '--conf', default='conf.yml')
@@ -85,4 +83,4 @@ if __name__ == "__main__":
 
     config.init(args.conf)
 
-    main(no_hello=args.no_hello)
+    _main(no_hello=args.no_hello)

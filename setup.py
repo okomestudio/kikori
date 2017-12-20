@@ -60,7 +60,6 @@ setup(
         'Topic :: Utilities'],
     package_dir={'': 'src'},
     packages=find_packages('src'),
-    scripts=['bin/kikori'],
     url='https://github.com/okomestudio/kikori',
     install_requires=[
         'pyyaml',
@@ -74,6 +73,12 @@ setup(
             'pytest>=3.1.1',
             'pytest-catchlog>=1.2.2',
             'pytest-cov>=2.5.1',
+        ]
+    },
+    entry_points={
+        'console_scripts': [
+            'kikori=kikori.cli.kikori:main',
+            'noisyapp=kikori.cli.noisyapp:main',
         ]
     }
 )

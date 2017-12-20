@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # The MIT License (MIT)
@@ -67,7 +66,3 @@ def main():
     logger = Logger()
     while 1:
         pass
-
-
-if __name__ == '__main__':
-    main()
