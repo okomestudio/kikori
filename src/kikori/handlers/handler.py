@@ -32,7 +32,7 @@ from types import SimpleNamespace
 from watchdog.events import LoggingEventHandler
 from watchdog.observers import Observer  # noqa
 
-from .utils import count_lines
+from ..utils import count_lines
 
 
 log = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def _create_cursor(path, pos, line):
     return SimpleNamespace(path=path, pos=pos, line=line)
 
 
-def _create_message(text, cursor):
+def create_message(text, cursor):
     return SimpleNamespace(text=text, cursor=copy.copy(cursor))
 
 
@@ -53,15 +53,13 @@ class EventHandler(LoggingEventHandler):
         self._cache = {}
         self.filename = re.compile(filename)
         self.text_pattern = re.compile(text_pattern)
-
-        self.triggers = []
-        for trigger in triggers:
-            trigger['text_pattern'] = re.compile(trigger['text_pattern'])
-            self.triggers.append(trigger)
-
+        self.triggers = [self._load_trigger(t) for t in triggers]
         self.routers = routers
 
         self._lock = threading.Lock()
+
+    def _load_trigger(self, trigger):
+        raise NotImplementedError
 
     def dispatch(self, event):
         if self._is_valid_event(event):
@@ -97,11 +95,6 @@ class EventHandler(LoggingEventHandler):
         for fullpath in self.all_watched_files(dir):
             with open(fullpath) as f:
                 cache = self._create_cache_entry(fullpath, f)
-                # line = count_lines(f)
-                # pos = f.tell()
-                # cursor = _create_cursor(path=fullpath, pos=pos, line=line)
-                # message = _create_message(None, cursor)
-                # self._cache[fullpath] = cursor, message
             log.info('Caching current state of watched file %s: %r',
                      fullpath, cache)
 
@@ -109,7 +102,7 @@ class EventHandler(LoggingEventHandler):
         line = count_lines(f)
         pos = f.tell()
         cursor = _create_cursor(path=fullpath, pos=pos, line=line)
-        message = _create_message(None, cursor)
+        message = create_message(None, cursor)
         self._cache[fullpath] = cursor, message
         return self._cache[fullpath]
 
@@ -129,6 +122,12 @@ class EventHandler(LoggingEventHandler):
             del self._cache[path]
 
     def _process_file(self, f):
+        """Process a log file when a modified event triggers.
+
+        Args:
+            f (stream): A stream object to the modified log file.
+
+        """
         path = self._get_full_path(f.name)
 
         cursor, message = self._cache[path]
@@ -139,51 +138,56 @@ class EventHandler(LoggingEventHandler):
             # newline at the end
             s = f.readline()
 
-            if not s.endswith('\n'):
-                # When `s` is not ending with a newline, it means
-                # either (1) the cursor is at the end of the file with
-                # the last line fully read previously or (2) the last
-                # line in the file is partially read and more might
-                # stream in on the next flush. Since there is no way
-                # to know if the message still follows or the next
-                # message starts, keep the cursor in the previous
-                # position and re-read when more bytes come in on the
-                # next modification.
+            if s == '':
+                # This is effectively an EOF. Although depending on
+                # how buffer flush happens, it could be in the middle
+                # of multiline log message. Here it is assumed that
+                # EOF always contains a full multiline message.
+                self._process_message(message)
+                message = create_message('', cursor)
+
                 self._cache[path] = cursor, message
                 break
 
             cursor.line += 1
             cursor.pos = f.tell()
 
-            if self.text_pattern.match(s):
-                # The message starts from this line, so the currently
-                # buffered message is complete
-                if message.text is None:
-                    # This happens when this is the very first message
-                    # text line parsed from stream.
-                    message.text = s
-                self._process_message(message)
+            message = self._build_message(cursor, message, s)
 
-                # Start buffering the new message
-                message = _create_message(s, cursor)
-            else:
-                # This is a non-first line in a multiline message and
-                # should be bufferred.
-                if message.text:
-                    message.text += s
+    def _build_message(self, cursor, message, line):
+        """Build a message from an incoming line.
+
+        Args:
+            message: TBD.
+            line: An incoming line from the log.
+
+        Returns:
+            message
+
+        """
+        raise NotImplementedError
+
+    def _match(self, pattern, obj):
+        raise NotImplementedError
+
+    def _get_matchable_object(self, obj):
+        return obj
+
+    def _render_object(self, obj):
+        return obj
 
     def _process_message(self, message):
-        if not message.text:
-            return
-
-        text = message.text.rstrip('\n')
         cursor = message.cursor
+        obj = self._get_matchable_object(message.text)
 
+        formatted_text = None
         for trigger in self.triggers:
-            mobj = trigger['text_pattern'].match(text)
-            if mobj:
+            matched = self._match(trigger['pattern'], obj)
+            if matched:
+                formatted_text = formatted_text or self._render_object(obj)
                 for router_config in trigger['routers']:
                     router = self.routers[router_config['name']]
-                    payload = router.payload(text, cursor, mobj.groupdict(),
+                    payload = router.payload(formatted_text,
+                                             cursor, matched,
                                              **router_config.get('args', {}))
                     router.send(payload)
