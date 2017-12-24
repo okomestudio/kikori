@@ -42,7 +42,7 @@ def _create_cursor(path, pos, line):
     return SimpleNamespace(path=path, pos=pos, line=line)
 
 
-def _create_message(text, cursor):
+def create_message(text, cursor):
     return SimpleNamespace(text=text, cursor=copy.copy(cursor))
 
 
@@ -97,11 +97,6 @@ class EventHandler(LoggingEventHandler):
         for fullpath in self.all_watched_files(dir):
             with open(fullpath) as f:
                 cache = self._create_cache_entry(fullpath, f)
-                # line = count_lines(f)
-                # pos = f.tell()
-                # cursor = _create_cursor(path=fullpath, pos=pos, line=line)
-                # message = _create_message(None, cursor)
-                # self._cache[fullpath] = cursor, message
             log.info('Caching current state of watched file %s: %r',
                      fullpath, cache)
 
@@ -109,7 +104,7 @@ class EventHandler(LoggingEventHandler):
         line = count_lines(f)
         pos = f.tell()
         cursor = _create_cursor(path=fullpath, pos=pos, line=line)
-        message = _create_message(None, cursor)
+        message = create_message(None, cursor)
         self._cache[fullpath] = cursor, message
         return self._cache[fullpath]
 
@@ -165,25 +160,36 @@ class EventHandler(LoggingEventHandler):
                 self._process_message(message)
 
                 # Start buffering the new message
-                message = _create_message(s, cursor)
+                message = create_message(s, cursor)
             else:
                 # This is a non-first line in a multiline message and
                 # should be bufferred.
                 if message.text:
                     message.text += s
 
+    def _match_text(self, pattern, text):
+        matched = pattern.match(text)
+        return None if matched is None else matched.groupdict()
+
+    def _format_text_for_matching(self, text):
+        return text.rstrip('\n')
+
+    def _format_text_for_view(self, text):
+        return text
+
     def _process_message(self, message):
-        if not message.text:
-            return
-
-        text = message.text.rstrip('\n')
         cursor = message.cursor
+        text = self._format_text_for_matching(message.text)
 
+        formatted_text = None
         for trigger in self.triggers:
-            mobj = trigger['text_pattern'].match(text)
-            if mobj:
+            matched = self._match_text(trigger['text_pattern'], text)
+            if matched:
+                formatted_text = formatted_text or self._format_text_for_view(
+                    text)
                 for router_config in trigger['routers']:
                     router = self.routers[router_config['name']]
-                    payload = router.payload(text, cursor, mobj.groupdict(),
+                    payload = router.payload(formatted_text,
+                                             cursor, matched,
                                              **router_config.get('args', {}))
                     router.send(payload)
