@@ -27,8 +27,8 @@ import logging
 import time
 
 from .. import config
-from ..watchers import EventHandler
-from ..watchers import Observer
+from ..handlers.text_logger_handler import TextLoggerHandler
+from ..observers import Observer
 
 
 logging.basicConfig(level=logging.INFO,
@@ -56,10 +56,10 @@ def _main(no_hello=False):
         text_pattern = conf['text_pattern']
         triggers = conf['triggers']
 
-        event_handler = EventHandler(filename,
-                                     text_pattern,
-                                     triggers,
-                                     routers)
+        event_handler = TextLoggerHandler(filename,
+                                          text_pattern,
+                                          triggers,
+                                          routers)
         event_handler.init(dir)
 
         observer.schedule(event_handler, dir, recursive=True)

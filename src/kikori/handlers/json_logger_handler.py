@@ -68,11 +68,20 @@ class JSONLoggerHandler(EventHandler):
             # Start buffering the new message
             message = create_message(s, cursor)
 
-    def _match_text(self, pattern, text):
-        return {'matched': True}
+    def _match(self, pattern, obj):
+        resultdict = {}
+        if isinstance(pattern, dict):
+            for key, value in pattern:
+                if key not in obj:
+                    return None
+                resultdict = value.match(obj[key])
+        else:
+            if pattern == obj:
+                resultdict = obj
+        return resultdict or None
 
-    def _format_text_for_matching(self, text):
+    def _get_matchable_object(self, text):
         return json.loads(text)
 
-    def _format_text_for_view(self, text):
-        return json.dumps(text)
+    def _render_object(self, obj):
+        return json.dumps(obj)

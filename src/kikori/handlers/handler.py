@@ -32,7 +32,7 @@ from types import SimpleNamespace
 from watchdog.events import LoggingEventHandler
 from watchdog.observers import Observer  # noqa
 
-from .utils import count_lines
+from ..utils import count_lines
 
 
 log = logging.getLogger(__name__)
@@ -167,26 +167,25 @@ class EventHandler(LoggingEventHandler):
                 if message.text:
                     message.text += s
 
-    def _match_text(self, pattern, text):
-        matched = pattern.match(text)
+    def _match(self, pattern, obj):
+        matched = pattern.match(obj)
         return None if matched is None else matched.groupdict()
 
-    def _format_text_for_matching(self, text):
+    def _get_matchable_object(self, text):
         return text.rstrip('\n')
 
-    def _format_text_for_view(self, text):
-        return text
+    def _render_object(self, obj):
+        return obj
 
     def _process_message(self, message):
         cursor = message.cursor
-        text = self._format_text_for_matching(message.text)
+        obj = self._get_matchable_object(message.text)
 
         formatted_text = None
         for trigger in self.triggers:
-            matched = self._match_text(trigger['text_pattern'], text)
+            matched = self._match(trigger['text_pattern'], obj)
             if matched:
-                formatted_text = formatted_text or self._format_text_for_view(
-                    text)
+                formatted_text = formatted_text or self._render_object(obj)
                 for router_config in trigger['routers']:
                     router = self.routers[router_config['name']]
                     payload = router.payload(formatted_text,

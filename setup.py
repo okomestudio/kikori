@@ -71,7 +71,6 @@ setup(
             'coverage>=4.4.1',
             'mock>=2.0.0',
             'pytest>=3.1.1',
-            'pytest-catchlog>=1.2.2',
             'pytest-cov>=2.5.1',
         ]
     },
