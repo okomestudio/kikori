@@ -25,6 +25,16 @@
 
 
 def filter_json(x, y):
+    """Given matching specification `x`, extract matching items from `y`.
+
+    Args:
+        x (dict): The matching specification.
+        y: A valid JSON object.
+
+    Returns:
+        Matched item(s) from y.
+
+    """
     result = {}
     for key, value in x.items():
         if key not in y:

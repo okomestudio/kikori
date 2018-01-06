@@ -53,13 +53,13 @@ The full app config file looks as follows:
         filename: '.*\.log$'
         text_pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:[A-Z]+:.*
         triggers:
-          - text_pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:ERROR:.*
+          - pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:ERROR:.*
             routers:
               - name: ops
                 args:
                   color: '#ff0000'
                   title: Error logged!
-          - text_pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:WARNING:.*
+          - pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:WARNING:.*
             routers:
               - name: ops
                 args:
@@ -70,7 +70,7 @@ The full app config file looks as follows:
         filename: '.*\.log$'
         text_pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:[A-Z]+:.*
         triggers:
-          - text_pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:(?<level>(ERROR|WARNING)):.*
+          - pattern: ^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+:(?<level>(ERROR|WARNING)):.*
             routers:
               - name: ops
                 args:

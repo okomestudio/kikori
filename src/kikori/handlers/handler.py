@@ -53,15 +53,14 @@ class EventHandler(LoggingEventHandler):
         self._cache = {}
         self.filename = re.compile(filename)
         self.text_pattern = re.compile(text_pattern)
-
-        self.triggers = []
-        for trigger in triggers:
-            trigger['text_pattern'] = re.compile(trigger['text_pattern'])
-            self.triggers.append(trigger)
-
+        self.triggers = [self._load_trigger(t) for t in triggers]
         self.routers = routers
 
         self._lock = threading.Lock()
+
+    def _load_trigger(self, trigger):
+        trigger['pattern'] = re.compile(trigger['pattern'])
+        return trigger
 
     def dispatch(self, event):
         if self._is_valid_event(event):
@@ -183,7 +182,7 @@ class EventHandler(LoggingEventHandler):
 
         formatted_text = None
         for trigger in self.triggers:
-            matched = self._match(trigger['text_pattern'], obj)
+            matched = self._match(trigger['pattern'], obj)
             if matched:
                 formatted_text = formatted_text or self._render_object(obj)
                 for router_config in trigger['routers']:

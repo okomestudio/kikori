@@ -23,12 +23,26 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import json
+import re
 
 from .handler import create_message
 from .handler import EventHandler
 
 
+def _load_pattern(pattern):
+    if not isinstance(pattern, dict):
+        return re.compile(pattern)
+    result = {}
+    for key, value in pattern.items():
+        result[key] = _load_pattern(value)
+    return result
+
+
 class JSONLoggerHandler(EventHandler):
+
+    def _load_trigger(self, trigger):
+        trigger['pattern'] = _load_pattern(trigger['pattern'])
+        return trigger
 
     def _process_file(self, f):
         path = self._get_full_path(f.name)
