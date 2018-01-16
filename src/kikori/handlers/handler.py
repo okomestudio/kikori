@@ -59,8 +59,7 @@ class EventHandler(LoggingEventHandler):
         self._lock = threading.Lock()
 
     def _load_trigger(self, trigger):
-        trigger['pattern'] = re.compile(trigger['pattern'])
-        return trigger
+        raise NotImplementedError
 
     def dispatch(self, event):
         if self._is_valid_event(event):
@@ -123,6 +122,12 @@ class EventHandler(LoggingEventHandler):
             del self._cache[path]
 
     def _process_file(self, f):
+        """Process a log file when a modified event triggers.
+
+        Args:
+            f (stream): A stream object to the modified log file.
+
+        """
         path = self._get_full_path(f.name)
 
         cursor, message = self._cache[path]
@@ -133,45 +138,40 @@ class EventHandler(LoggingEventHandler):
             # newline at the end
             s = f.readline()
 
-            if not s.endswith('\n'):
-                # When `s` is not ending with a newline, it means
-                # either (1) the cursor is at the end of the file with
-                # the last line fully read previously or (2) the last
-                # line in the file is partially read and more might
-                # stream in on the next flush. Since there is no way
-                # to know if the message still follows or the next
-                # message starts, keep the cursor in the previous
-                # position and re-read when more bytes come in on the
-                # next modification.
+            if s == '':
+                # This is effectively an EOF. Although depending on
+                # how buffer flush happens, it could be in the middle
+                # of multiline log message. Here it is assumed that
+                # EOF always contains a full multiline message.
+                self._process_message(message)
+                message = create_message('', cursor)
+
                 self._cache[path] = cursor, message
                 break
 
             cursor.line += 1
             cursor.pos = f.tell()
 
-            if self.text_pattern.match(s):
-                # The message starts from this line, so the currently
-                # buffered message is complete
-                if message.text is None:
-                    # This happens when this is the very first message
-                    # text line parsed from stream.
-                    message.text = s
-                self._process_message(message)
+            message = self._build_message(cursor, message, s)
 
-                # Start buffering the new message
-                message = create_message(s, cursor)
-            else:
-                # This is a non-first line in a multiline message and
-                # should be bufferred.
-                if message.text:
-                    message.text += s
+    def _build_message(self, cursor, message, line):
+        """Build a message from an incoming line.
+
+        Args:
+            message: TBD.
+            line: An incoming line from the log.
+
+        Returns:
+            message
+
+        """
+        raise NotImplementedError
 
     def _match(self, pattern, obj):
-        matched = pattern.match(obj)
-        return None if matched is None else matched.groupdict()
+        raise NotImplementedError
 
-    def _get_matchable_object(self, text):
-        return text.rstrip('\n')
+    def _get_matchable_object(self, obj):
+        return obj
 
     def _render_object(self, obj):
         return obj

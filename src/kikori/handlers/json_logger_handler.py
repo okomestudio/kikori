@@ -23,10 +23,14 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import json
+import logging
 import re
 
 from .handler import create_message
 from .handler import EventHandler
+
+
+log = logging.getLogger(__name__)
 
 
 def _load_pattern(pattern):
@@ -44,43 +48,17 @@ class JSONLoggerHandler(EventHandler):
         trigger['pattern'] = _load_pattern(trigger['pattern'])
         return trigger
 
-    def _process_file(self, f):
-        path = self._get_full_path(f.name)
+    def _build_message(self, cursor, message, line):
+        # This must be a complete JSON-parsable line
+        if message.text is None:
+            # This happens when this is the very first message
+            # text line parsed from stream.
+            message.text = line
+        self._process_message(message)
 
-        cursor, message = self._cache[path]
-        f.seek(cursor.pos)
-
-        while 1:
-            # Read a line from the current position, including the
-            # newline at the end
-            s = f.readline()
-
-            if not s.endswith('\n'):
-                # When `s` is not ending with a newline, it means
-                # either (1) the cursor is at the end of the file with
-                # the last line fully read previously or (2) the last
-                # line in the file is partially read and more might
-                # stream in on the next flush. Since there is no way
-                # to know if the message still follows or the next
-                # message starts, keep the cursor in the previous
-                # position and re-read when more bytes come in on the
-                # next modification.
-                self._cache[path] = cursor, message
-                break
-
-            cursor.line += 1
-            cursor.pos = f.tell()
-
-            # This must be a complete JSON-parsable line
-
-            if message.text is None:
-                # This happens when this is the very first message
-                # text line parsed from stream.
-                message.text = s
-            self._process_message(message)
-
-            # Start buffering the new message
-            message = create_message(s, cursor)
+        # Start buffering the new message
+        message = create_message(line, cursor)
+        return message
 
     def _match(self, pattern, obj):
         resultdict = {}

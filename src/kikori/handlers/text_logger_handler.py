@@ -22,8 +22,47 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+import logging
+import re
+
+from .handler import create_message
 from .handler import EventHandler
 
 
+log = logging.getLogger(__name__)
+
+
 class TextLoggerHandler(EventHandler):
-    pass
+
+    def _load_trigger(self, trigger):
+        trigger['pattern'] = re.compile(trigger['pattern'])
+        return trigger
+
+    def _build_message(self, cursor, message, line):
+        if self.text_pattern.match(line):
+            # The message starts from this line, so the currently
+            # buffered message is complete
+            if message.text is None:
+                # This happens when this is the very first message
+                # text line parsed from stream.
+                message.text = line
+            self._process_message(message)
+
+            # Start buffering the new message
+            message = create_message(line, cursor)
+        else:
+            # This is a non-first line in a multiline message and
+            # should be bufferred.
+            if message.text:
+                message.text += line
+        return message
+
+    def _match(self, pattern, obj):
+        matched = pattern.match(obj)
+        return None if matched is None else matched.groupdict()
+
+    def _get_matchable_object(self, text):
+        return text.rstrip('\n')
+
+    def _render_object(self, obj):
+        return obj
