@@ -25,7 +25,7 @@
 from . import config  # noqa
 
 
-__version__ = '0.4.0'
+__version__ = '0.4.1.dev0'
 __author__ = 'Taro Sato'
 __author_email__ = 'okomestudio@gmail.com'
 __license__ = 'MIT'

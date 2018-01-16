@@ -143,7 +143,8 @@ class EventHandler(LoggingEventHandler):
                 # how buffer flush happens, it could be in the middle
                 # of multiline log message. Here it is assumed that
                 # EOF always contains a full multiline message.
-                self._process_message(message)
+                if message.text is not None:
+                    self._process_message(message)
                 message = create_message('', cursor)
 
                 self._cache[path] = cursor, message
